@@ -33,7 +33,7 @@ python -m pip install -r requirements.txt
 # Run the parser
 python molbase_parser.py
 
-The expected output is a list of compound names found in the HTML file:
+# The expected output is a list of compound names found in the HTML file:
 
 4-(4-aminophenyl)aniline
 
