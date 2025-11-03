@@ -1,5 +1,5 @@
-A03, assignment number 4
 # MOLBASE Benzidine Compound Parser
+A03, assignment number 4
 This project provides a script to parse compound names from the results page of a MOLBASE search for "benzidine".  
 1. Go to [https://www.molbase.com/](https://www.molbase.com/) and search for "benzidine".
 2. Save the first page of the search results as `molbase_benzidine.html`, the search results page must be saved as a complete HTML file with UTF-8 encoding for proper parsing.
