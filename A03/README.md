@@ -34,10 +34,15 @@ python -m pip install -r requirements.txt
 python molbase_parser.py
 
 The expected output is a list of compound names found in the HTML file:
+
 4-(4-aminophenyl)aniline
+
 2,6,2',6'-tetrachloro-benzidine
+
 3,3'-diethoxy-benzidine
+
 N,N'-Diphenylbenzidine
+
 acetic acid,4-(4-aminophenyl)aniline
 
 Benzidine sulphate
