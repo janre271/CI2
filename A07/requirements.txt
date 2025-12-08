@@ -1,0 +1,12 @@
+# Requirements for A07
+# This assignment does not require Python packages
+# 
+# External tools required (install separately):
+# - OpenBabel: command-line tool for molecular structure conversion
+#   Installation: conda install -c conda-forge openbabel
+#
+# - POV-Ray: ray-tracing software for rendering 3D images
+#   Installation: http://www.povray.org/download/
+#
+# Run: pip install -r requirements.txt
+# (This will complete successfully with no packages to install)
