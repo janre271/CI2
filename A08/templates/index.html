@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChEMBL Compound Search</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .search-form {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .example {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #c33;
+            margin-bottom: 20px;
+        }
+        
+        .results {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+        
+        .results h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .info-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .info-value {
+            color: #333;
+            word-break: break-word;
+            line-height: 1.5;
+        }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .smiles-value {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 ChEMBL Compound Search</h1>
+        <p class="subtitle">Search for chemical compounds using SMILES notation</p>
+        
+        <div class="search-form">
+            <form method="POST">
+                <label for="smiles">Enter SMILES:</label>
+                <input type="text" 
+                       id="smiles" 
+                       name="smiles" 
+                       placeholder="e.g., CC(=O)Oc1ccccc1C(=O)O"
+                       value="{{ smiles_input or '' }}"
+                       required>
+                <p class="example">Example: CC(=O)Oc1ccccc1C(=O)O (Aspirin) or OC(=O)CCCCCCCC(=O)O (Azelaic acid)</p>
+                <button type="submit">Search ChEMBL Database</button>
+            </form>
+        </div>
+        
+        {% if error_message %}
+        <div class="error">
+            <strong>Error:</strong> {{ error_message }}
+        </div>
+        {% endif %}
+        
+        {% if compound_info %}
+        <div class="results">
+            <h2>Compound Information</h2>
+            
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">ChEMBL ID</div>
+                    <div class="info-value">{{ compound_info.chembl_id }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Preferred Name</div>
+                    <div class="info-value">{{ compound_info.pref_name }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Molecule Type</div>
+                    <div class="info-value">{{ compound_info.molecule_type }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Max Phase</div>
+                    <div class="info-value">{{ compound_info.max_phase }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Molecular Formula</div>
+                    <div class="info-value">{{ compound_info.molecular_formula }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Molecular Weight</div>
+                    <div class="info-value">{{ compound_info.molecular_weight }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">ALogP</div>
+                    <div class="info-value">{{ compound_info.alogp }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">H-Bond Acceptors</div>
+                    <div class="info-value">{{ compound_info.hba }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">H-Bond Donors</div>
+                    <div class="info-value">{{ compound_info.hbd }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Polar Surface Area</div>
+                    <div class="info-value">{{ compound_info.psa }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Rotatable Bonds</div>
+                    <div class="info-value">{{ compound_info.rtb }}</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Ro5 Violations</div>
+                    <div class="info-value">{{ compound_info.num_ro5_violations }}</div>
+                </div>
+                
+                <div class="info-item full-width">
+                    <div class="info-label">Synonyms</div>
+                    <div class="info-value">{{ compound_info.synonyms }}</div>
+                </div>
+                
+                <div class="info-item full-width">
+                    <div class="info-label">Canonical SMILES</div>
+                    <div class="info-value smiles-value">{{ compound_info.smiles }}</div>
+                </div>
+                
+                <div class="info-item full-width">
+                    <div class="info-label">InChI Key</div>
+                    <div class="info-value smiles-value">{{ compound_info.inchi_key }}</div>
+                </div>
+                
+                <div class="info-item full-width">
+                    <div class="info-label">Standard InChI</div>
+                    <div class="info-value smiles-value">{{ compound_info.inchi }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
