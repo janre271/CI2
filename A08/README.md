@@ -1,150 +1,107 @@
-# Assignment A08 - ChEMBL Compound Search Web Application
+# Assignment A08 - ChEMBL SMILES Explorer
 
-## Description
+This assignment builds a Flask web application that accepts a SMILES string, queries the public ChEMBL web services (via `chembl_webresource_client`), and reports the first matching compound in a structured, browser-based report. All functionality is implemented inside functions, and the script exposes a CLI entry point through `if __name__ == '__main__': main(sys.argv)` as required.
 
-This Flask web application allows users to search for chemical compound information from the ChEMBL database using SMILES (Simplified Molecular Input Line Entry System) notation. The application provides a user-friendly web interface where users can enter SMILES strings and retrieve detailed compound information.
+Prerequisites
+-------------
 
-## Features
+- Git installed (to clone the repository)
+- Python 3.10 or newer available on PATH
+- Internet connectivity (the app contacts https://www.ebi.ac.uk/chembl/ws at runtime)
 
-- Simple web form for entering SMILES notation
-- Integration with ChEMBL Web API via the chembl_webresource_client Python package
-- Display of comprehensive compound information including:
-  - ChEMBL ID
-  - Preferred name and synonyms
-  - Molecular formula and weight
-  - Chemical structure identifiers (SMILES, InChI, InChI Key)
-  - Physicochemical properties (ALogP, H-bond acceptors/donors, polar surface area)
-  - Drug-likeness metrics (Lipinski's Rule of Five violations)
-  - Development phase information
-- Responsive and visually appealing web interface
+How to clone from GitHub
+------------------------
 
-## Installation and Setup
-
-### 1. Clone the Repository
+Clone the repository and navigate to the assignment folder:
 
 ```bash
 git clone https://github.com/janre271/CI2.git
 cd CI2/A08
 ```
 
-### 2. Create a Virtual Environment
+Quick steps to run the app
+--------------------------
 
-**On Windows (PowerShell):**
+**Step 1:** Create and activate a virtual environment (recommended)
+
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-**On Linux/macOS:**
+On Linux/macOS:
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Install Required Packages
+**Step 2:** Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-This will install:
-- Flask 3.0.0 - Web framework
-- chembl-webresource-client 0.10.9 - ChEMBL API client
-- Werkzeug 3.0.1 - WSGI utility library
+This pulls in Flask 3.0.0, chembl-webresource-client 0.10.9, and Werkzeug 3.0.1.
 
-## Running the Application
+**Step 3:** Launch the Flask server
 
-### Start the Flask Server
-
-**Default port (5000):**
 ```bash
-python app.py
+python app.py          # default port 5000
+python app.py 8080     # run on a custom port
 ```
 
-**Custom port:**
-```bash
-python app.py 8080
-```
+**Step 4:** Open the web UI
 
-The server will start and display:
-```
- * Running on http://0.0.0.0:5000
-```
+Visit `http://localhost:PORT`, enter any SMILES string (for example, `OC(=O)CCCCCCCC(=O)O`), and submit the form. The response shows the compound overview, physicochemical properties, synonyms, and structure identifiers. The form remains visible for repeated searches without reloading the page.
 
-### Access the Web Interface
+How it works
+------------
 
-Open your web browser and navigate to:
-```
-http://localhost:5000
-```
+1. The Flask route (`/`) renders `templates/index.html`, which contains the SMILES input form and the result sections.
+2. On POST, the server calls `search_chembl(smiles)` which uses `chembl_webresource_client.new_client.molecule.filter` to request the first compound that flex-matches the given SMILES.
+3. `_prepare_compound_payload()` extracts the subset of ChEMBL fields used in the UI (IDs, synonyms, molecular properties, structure identifiers).
+4. The template displays the resulting dictionary in four stacked sections so the compound dossier is immediately readable.
 
-## Using the Application
-
-1. **Enter SMILES notation** in the input field on the main page
-   - Example for aspirin: `CC(=O)Oc1ccccc1C(=O)O`
-   - Example for azelaic acid: `OC(=O)CCCCCCCC(=O)O`
-
-2. **Click "Search ChEMBL Database"** button
-
-3. **View the results** displayed on the page, including:
-   - Compound identification (ChEMBL ID, name)
-   - Molecular properties
-   - Chemical structure representations
-   - Drug development information
-
-4. **Perform a new search** by entering another SMILES string in the form at the top
-
-## Example Output
-
-### Search Query: Azelaic Acid
-**SMILES:** `OC(=O)CCCCCCCC(=O)O`
-
-**Compound Information Retrieved:**
-
-- **ChEMBL ID:** CHEMBL1238
-- **Preferred Name:** AZELAIC ACID
-- **Molecule Type:** Small molecule
-- **Max Phase:** 4.0
-- **Molecular Formula:** C9H16O4
-- **Molecular Weight:** 188.22
-- **ALogP:** 1.89
-- **H-Bond Acceptors:** 2
-- **H-Bond Donors:** 2
-- **Polar Surface Area:** 74.60
-- **Rotatable Bonds:** 8
-- **Ro5 Violations:** 0
-- **Synonyms:** Acide azelaique, Acido azelaico, Anchoic acid, Azelaic acid, Azelaic acid
-- **Canonical SMILES:** O=C(O)CCCCCCCC(=O)O
-- **InChI Key:** BDJRBEYXGGNYIS-UHFFFAOYSA-N
-- **Standard InChI:** InChI=1S/C9H16O4/c10-8(11)6-4-2-1-3-5-7-9(12)13/h1-7H2,(H,10,11)(H,12,13)
-
-## Project Structure
+Files included
+--------------
 
 ```
 A08/
-├── app.py                 # Main Flask application
-├── requirements.txt       # Python dependencies
-├── README.md             # This file
+├── app.py           # Flask application and helper functions
+├── requirements.txt # Python dependencies for pip install -r
 ├── templates/
-│   └── index.html        # Web interface template
-└── .venv/                # Virtual environment (created during setup)
+│   └── index.html   # Form + compound report UI
+└── README.md        # Assignment description and run instructions
 ```
 
-## Technical Details
+Example page content (Azelaic Acid)
+-----------------------------------
 
-- **Framework:** Flask 3.0.0
-- **API:** ChEMBL Web Services (https://www.ebi.ac.uk/chembl/ws)
-- **Python Version:** Python 3.7+
-- **Architecture:** Function-based Flask application with modular design
+Use the following text snapshot—obtained by searching for azelaic acid (`OC(=O)CCCCCCCC(=O)O`)—to validate that your deployment renders the same content:
 
-## Troubleshooting
+```
+Compound Overview
+ChEMBL ID: CHEMBL1238
+Preferred Name: AZELAIC ACID
+Molecule Type: Small molecule
+Max Phase: 4.0
 
-- **Port already in use:** Change the port number when starting the application: `python app.py 8080`
-- **Module not found:** Ensure all dependencies are installed: `pip install -r requirements.txt`
-- **No compound found:** Verify the SMILES notation is correct
-- **API timeout:** Check internet connection and ChEMBL service availability
+Key Properties
+Formula: C9H16O4
+Molecular Weight: 188.22
+ALogP: 1.89
+H-Bond Acceptors: 2
+H-Bond Donors: 2
+Polar Surface Area: 74.60
+Rotatable Bonds: 8
+Ro5 Violations: 0
 
-## Author
+Synonyms
+Acide azelaique, Acido azelaico, Anchoic acid, Azelaic acid, Azelaic acid
 
-Created for CI2 Course - Assignment A08
-Date: December 15, 2025
+Structure Identifiers
+SMILES: O=C(O)CCCCCCCC(=O)O
+InChI: InChI=1S/C9H16O4/c10-8(11)6-4-2-1-3-5-7-9(12)13/h1-7H2,(H,10,11)(H,12,13)
+InChI Key: BDJRBEYXGGNYIS-UHFFFAOYSA-N
+```
