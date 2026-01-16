@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+venv_wsl/
+env/
+ENV/
+.venv
+*.egg-info/
+dist/
+build/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+report.html
+.tox/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated files (keep directory, ignore contents except .gitkeep)
+static/generated/*.png
+static/generated/*.pov
+!static/generated/.gitkeep
+
+# Logs
+*.log
+nohup.out
+server.log
