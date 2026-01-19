@@ -1,0 +1,2 @@
+Django==5.0.1
+chembl-webresource-client==0.10.9

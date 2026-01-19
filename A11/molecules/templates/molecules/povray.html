@@ -1,0 +1,119 @@
+{% extends 'molecules/base.html' %}
+
+{% block title %}3D Visualization - ChEMBL 3D Explorer{% endblock %}
+
+{% block extra_style %}
+<style>
+    .image-container {
+        margin: 2rem 0;
+        text-align: center;
+        padding: 2rem;
+        background: #f7fafc;
+        border-radius: 8px;
+    }
+    
+    .molecule-image {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    
+    .info-box {
+        background: #ebf8ff;
+        border-left: 4px solid #4299e1;
+        padding: 1rem;
+        margin: 1.5rem 0;
+        border-radius: 4px;
+    }
+    
+    .info-box h4 {
+        color: #2c5282;
+        margin-bottom: 0.5rem;
+    }
+    
+    .info-box p {
+        color: #2d3748;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-box">
+    <h2 style="color: #667eea; margin-bottom: 1rem;">3D Molecular Visualization</h2>
+    <p style="color: #4a5568; margin-bottom: 2rem;">
+        Enter a SMILES string to generate a high-quality 3D rendering using POV-Ray.
+    </p>
+    
+    <div class="info-box">
+        <h4>Requirements</h4>
+        <p>
+            This feature requires <strong>Open Babel</strong> and <strong>POV-Ray</strong> to be installed on the server.
+            The molecule is converted to 3D coordinates and rendered as a ball-and-stick model.
+        </p>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="smiles">SMILES String:</label>
+            <input 
+                type="text" 
+                id="smiles" 
+                name="smiles" 
+                placeholder="e.g., CN1C=NC2=C1C(=O)N(C(=O)N2C)C"
+                value="{{ smiles_input }}"
+                autofocus
+            >
+        </div>
+        <button type="submit" class="btn">Generate 3D Image</button>
+    </form>
+    
+    {% if error %}
+    <div class="alert alert-error">
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+    
+    {% if image_url %}
+    <div class="image-container">
+        <h3 style="color: #667eea; margin-bottom: 1rem;">Generated 3D Structure</h3>
+        <img src="{{ image_url }}" alt="3D Molecule Structure" class="molecule-image">
+        <p style="margin-top: 1rem; color: #718096; font-style: italic;">
+            Ball-and-stick representation of: <code style="background: white; padding: 4px 8px; border-radius: 3px;">{{ smiles_input }}</code>
+        </p>
+    </div>
+    {% endif %}
+    
+    <div style="margin-top: 2rem; padding: 1rem; background: #fffaf0; border-left: 4px solid #dd6b20; border-radius: 4px;">
+        <h4 style="color: #c05621; margin-bottom: 0.5rem;">Note on Rendering</h4>
+        <p style="color: #744210; margin: 0;">
+            Open Babel's POV-Ray export generates 3D ball-and-stick models but does not visually distinguish 
+            double bonds from single bonds in the final image. The structural geometry is correct, but C=O 
+            carbonyl groups and other multiple bonds appear as standard cylinders.
+        </p>
+    </div>
+    
+    <div style="margin-top: 2rem; padding: 1.5rem; background: #f7fafc; border-radius: 8px;">
+        <h4 style="color: #2d3748; margin-bottom: 1rem;">Example SMILES for Testing:</h4>
+        <ul style="margin-left: 1.5rem; color: #4a5568;">
+            <li><strong>Benzene:</strong> <code>c1ccccc1</code> - Simple aromatic ring</li>
+            <li><strong>Caffeine:</strong> <code>CN1C=NC2=C1C(=O)N(C(=O)N2C)C</code> - Complex heterocycle</li>
+            <li><strong>Aspirin:</strong> <code>CC(=O)Oc1ccccc1C(=O)O</code> - Pharmaceutical compound</li>
+            <li><strong>Methane:</strong> <code>C</code> - Simplest organic molecule</li>
+        </ul>
+    </div>
+</div>
+
+<style>
+    code {
+        background: #edf2f7;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: 'Courier New', monospace;
+        color: #764ba2;
+        font-size: 0.95em;
+    }
+</style>
+{% endblock %}
