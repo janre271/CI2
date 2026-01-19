@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -125,8 +126,9 @@ def _ensure_binary(name: str) -> None:
 
 def _run_command(command: list, error_hint: str) -> None:
     """Execute a CLI tool and raise MoleculeImageError on failure."""
-    # Run commands through WSL for better compatibility
-    wsl_command = ["wsl", "-d", "Ubuntu", "bash", "-c", " ".join(f'"{arg}"' if ' ' in str(arg) else str(arg) for arg in command)]
+    # Run commands through WSL - use shlex.quote to properly escape all arguments
+    escaped_args = " ".join(shlex.quote(str(arg)) for arg in command)
+    wsl_command = ["wsl", "-d", "Ubuntu", "bash", "-c", escaped_args]
     
     try:
         subprocess.run(
