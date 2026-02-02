@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChEMBL 3D Explorer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@500;600&display=swap');
+
+        :root {
+            --paper: #fffef6;
+            --paper-line: rgba(32, 64, 80, 0.12);
+            --soft-blue: #f0f5f9;
+            --ink: #1f2a37;
+            --muted: #64748b;
+            --accent: #0f9d88;
+            --accent-soft: #d8f6ec;
+            --shadow: rgba(31, 42, 55, 0.1);
+            --success: #0f9d58;
+            --error: #c0392b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f9fbff 0%, #e6eff7 60%);
+            color: var(--ink);
+            padding: 32px;
+        }
+
+        .grid-shell {
+            display: grid;
+            grid-template-columns: minmax(280px, 360px) 1fr;
+            gap: 28px;
+            max-width: 1320px;
+            margin: 0 auto;
+        }
+
+        .sidebar {
+            background: #fff;
+            border-radius: 24px;
+            padding: 32px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            box-shadow: 0 20px 50px var(--shadow);
+            position: sticky;
+            top: 24px;
+            align-self: start;
+        }
+
+        .brand {
+            font-size: 1.3rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 0.95rem;
+            color: var(--muted);
+            margin-bottom: 28px;
+            line-height: 1.5;
+        }
+
+        label {
+            display: block;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 16px 18px;
+            border-radius: 18px;
+            border: 1.5px solid rgba(15, 23, 42, 0.12);
+            background: var(--soft-blue);
+            color: var(--ink);
+            font-size: 1.05rem;
+            font-family: 'IBM Plex Mono', monospace;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(15, 157, 136, 0.25);
+        }
+
+        .examples {
+            margin-top: 12px;
+            font-size: 0.8rem;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        .examples strong {
+            color: var(--ink);
+            font-weight: 600;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 18px;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: #fff;
+            background: linear-gradient(120deg, var(--accent), #15b392);
+            cursor: pointer;
+            box-shadow: 0 12px 25px rgba(15, 157, 136, 0.3);
+            transition: transform 0.2s ease;
+        }
+
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .alert {
+            margin-top: 20px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid transparent;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .alert.success {
+            border-color: rgba(15, 157, 88, 0.35);
+            background: rgba(15, 157, 88, 0.12);
+            color: #0a5c2f;
+        }
+
+        .alert.error {
+            border-color: rgba(192, 57, 43, 0.35);
+            background: rgba(192, 57, 43, 0.1);
+            color: #7b1a0f;
+        }
+
+        .content {
+            background: var(--paper);
+            border-radius: 32px;
+            padding: 40px;
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            box-shadow: 0 35px 80px rgba(15, 23, 42, 0.12);
+            position: relative;
+        }
+
+        .notebook {
+            position: relative;
+            background: repeating-linear-gradient(
+                to bottom,
+                var(--paper) 0px,
+                var(--paper) 26px,
+                var(--paper-line) 27px
+            );
+            border-radius: 28px;
+            padding: 36px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+        }
+
+        .notebook::before {
+            content: '';
+            position: absolute;
+            top: 24px;
+            left: 40px;
+            right: 40px;
+            height: 10px;
+            background: linear-gradient(90deg, rgba(247, 127, 0, 0.25), rgba(255, 179, 71, 0.25));
+            border-radius: 999px;
+        }
+
+        .result-header {
+            display: flex;
+            gap: 28px;
+            align-items: flex-start;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            font-family: 'IBM Plex Sans', 'Space Grotesk', sans-serif;
+            font-size: 1.7rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .lede {
+            color: var(--muted);
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .image-frame {
+            background: var(--soft-blue);
+            border-radius: 20px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            max-width: 320px;
+            text-align: center;
+        }
+
+        .image-frame img {
+            width: 100%;
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .image-caption {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-top: 8px;
+        }
+
+        .section-block {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 22px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 18px 35px var(--shadow);
+        }
+
+        .section-title {
+            font-size: 0.95rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 18px;
+        }
+
+        .stat-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+        }
+
+        .stat {
+            padding: 14px;
+            border-radius: 14px;
+            background: var(--soft-blue);
+            border: 1px solid rgba(15, 23, 42, 0.06);
+        }
+
+        .stat-label {
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .stat-value {
+            font-size: 1.05rem;
+            color: var(--ink);
+            word-break: break-word;
+        }
+
+        .note-block,
+        .mono-block {
+            background: var(--soft-blue);
+            border-radius: 14px;
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            padding: 16px 18px;
+            color: var(--ink);
+            font-size: 1rem;
+            line-height: 1.5;
+            margin-bottom: 12px;
+            word-break: break-word;
+        }
+
+        .mono-block {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.95rem;
+        }
+
+        .placeholder {
+            font-size: 1.1rem;
+            color: var(--muted);
+            text-align: center;
+            padding: 80px 24px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .loading {
+            font-size: 1rem;
+            color: var(--muted);
+            text-align: center;
+            padding: 32px;
+        }
+
+        @media (max-width: 960px) {
+            body {
+                padding: 16px;
+            }
+            .grid-shell {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                position: static;
+            }
+            .content {
+                padding: 28px;
+            }
+            .result-header {
+                flex-direction: column;
+            }
+            .image-frame {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-shell">
+        <aside class="sidebar">
+            <div class="brand">ChEMBL 3D Explorer</div>
+            <p class="subtitle">Submit any SMILES string to pull the latest compound data and a POV-Ray rendering without leaving this page.</p>
+            <form id="smiles-form" autocomplete="off">
+                <label for="smiles">SMILES Input</label>
+                <input
+                    type="text"
+                    id="smiles"
+                    name="smiles"
+                    placeholder="OC(=O)CCCCCCCC(=O)O"
+                    required
+                >
+                <p class="examples">Example: azelaic acid <strong>OC(=O)CCCCCCCC(=O)O</strong></p>
+                <button type="submit" id="submit-btn">Generate dossier</button>
+                <div id="status" class="alert hidden" role="alert"></div>
+            </form>
+            <p class="examples" style="margin-top:28px;">
+                The request is processed asynchronously via JavaScript. The Flask backend stays on the same page and only returns JSON.
+            </p>
+        </aside>
+
+        <main class="content">
+            <div id="placeholder" class="placeholder">
+                Start by submitting a SMILES string. As soon as the backend responds, the sections below will be replaced with live compound data and a POV-Ray render.
+            </div>
+            <div id="loading-indicator" class="loading hidden">Processing request...</div>
+            <div id="results-shell" class="notebook hidden">
+                <div class="result-header">
+                    <div>
+                        <h1>Compound Data Viewer</h1>
+                        <p class="lede">Overview, physicochemical properties, synonyms, identifiers, and a 3D rendering.</p>
+                        <p class="lede"><strong>Current SMILES:</strong> <span data-field="smiles">—</span></p>
+                    </div>
+                    <div class="image-frame">
+                        <img id="molecule-image" alt="3D molecule preview" src="" class="hidden">
+                        <p class="image-caption">obabel ➜ POV-Ray render saved on the server</p>
+                    </div>
+                </div>
+
+                <section class="section-block">
+                    <div class="section-title">Overview</div>
+                    <div class="stat-list">
+                        <div class="stat">
+                            <div class="stat-label">ChEMBL ID</div>
+                            <div class="stat-value" data-field="chembl_id">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Preferred Name</div>
+                            <div class="stat-value" data-field="pref_name">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Molecule Type</div>
+                            <div class="stat-value" data-field="molecule_type">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Max Phase</div>
+                            <div class="stat-value" data-field="max_phase">—</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <div class="section-title">Physicochemical Profile</div>
+                    <div class="stat-list">
+                        <div class="stat">
+                            <div class="stat-label">Formula</div>
+                            <div class="stat-value" data-field="molecular_formula">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Molecular Weight</div>
+                            <div class="stat-value" data-field="molecular_weight">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">ALogP</div>
+                            <div class="stat-value" data-field="alogp">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">H-Bond Acceptors</div>
+                            <div class="stat-value" data-field="hba">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">H-Bond Donors</div>
+                            <div class="stat-value" data-field="hbd">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Polar Surface Area</div>
+                            <div class="stat-value" data-field="psa">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Rotatable Bonds</div>
+                            <div class="stat-value" data-field="rtb">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Ro5 Violations</div>
+                            <div class="stat-value" data-field="num_ro5_violations">—</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Rule of 3 Pass</div>
+                            <div class="stat-value" data-field="ro3_pass">—</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-block">
+                    <div class="section-title">Synonyms</div>
+                    <div class="note-block" data-field="synonyms">—</div>
+                </section>
+
+                <section class="section-block">
+                    <div class="section-title">Structure Identifiers</div>
+                    <div class="mono-block">SMILES: <span data-field="smiles">—</span></div>
+                    <div class="mono-block">InChI: <span data-field="inchi">—</span></div>
+                    <div class="mono-block">InChI Key: <span data-field="inchi_key">—</span></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const form = document.getElementById('smiles-form');
+        const input = document.getElementById('smiles');
+        const statusBox = document.getElementById('status');
+        const resultsShell = document.getElementById('results-shell');
+        const placeholder = document.getElementById('placeholder');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const submitButton = document.getElementById('submit-btn');
+        const moleculeImage = document.getElementById('molecule-image');
+        const fieldNodes = document.querySelectorAll('[data-field]');
+
+        const setStatus = (message, tone = 'success') => {
+            if (!message) {
+                statusBox.classList.add('hidden');
+                return;
+            }
+            statusBox.textContent = message;
+            statusBox.classList.remove('hidden');
+            statusBox.classList.toggle('error', tone === 'error');
+            statusBox.classList.toggle('success', tone === 'success');
+        };
+
+        const toggleLoading = (isLoading) => {
+            submitButton.disabled = isLoading;
+            loadingIndicator.classList.toggle('hidden', !isLoading);
+        };
+
+        const populateFields = (compound) => {
+            fieldNodes.forEach((node) => {
+                const key = node.dataset.field;
+                node.textContent = compound[key] ?? 'N/A';
+            });
+        };
+
+        const renderImage = (url, smiles) => {
+            if (!url) {
+                moleculeImage.classList.add('hidden');
+                moleculeImage.removeAttribute('src');
+                return;
+            }
+            moleculeImage.src = `${url}?t=${Date.now()}`;
+            moleculeImage.alt = `POV-Ray render for ${smiles}`;
+            moleculeImage.classList.remove('hidden');
+        };
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const smiles = input.value.trim();
+            if (!smiles) {
+                setStatus('Please enter a SMILES string before submitting.', 'error');
+                return;
+            }
+
+            toggleLoading(true);
+            setStatus('');
+
+            try {
+                const response = await fetch('/api/compound', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ smiles }),
+                });
+
+                const payload = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(payload.error || 'Unable to process the request.');
+                }
+
+                populateFields({ ...payload.compound, smiles });
+                renderImage(payload.imageUrl, smiles);
+                placeholder.classList.add('hidden');
+                resultsShell.classList.remove('hidden');
+                setStatus('Compound loaded successfully.', 'success');
+            } catch (error) {
+                setStatus(error.message, 'error');
+            } finally {
+                toggleLoading(false);
+            }
+        });
+    </script>
+</body>
+</html>
