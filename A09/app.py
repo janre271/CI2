@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -9,8 +10,23 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 from uuid import uuid4
 
-from chembl_webresource_client.new_client import new_client
 from flask import Flask, jsonify, render_template, request, url_for
+
+# Lazy import to avoid crash if ChEMBL API is down at startup
+new_client = None
+
+def _get_chembl_client():
+    """Lazily import the ChEMBL client to handle API downtime gracefully."""
+    global new_client
+    if new_client is None:
+        try:
+            from chembl_webresource_client.new_client import new_client as client
+            new_client = client
+        except Exception as e:
+            raise RuntimeError(
+                f"ChEMBL API is currently unavailable. Please try again later. Error: {e}"
+            )
+    return new_client
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -50,8 +66,7 @@ def _prepare_compound_payload(compound: Dict[str, Any]) -> Dict[str, Any]:
         "hbd": grab("hbd", "N/A"),
         "psa": grab("psa", "N/A"),
         "rtb": grab("rtb", "N/A"),
-        "num_ro5_violations": grab("num_ro5_violations", "N/A"),
-        "ro3_pass": grab("ro3_pass", "N/A"),
+        "ro5_violations": grab("num_ro5_violations", "N/A"),
         "molecule_type": compound.get("molecule_type", "N/A"),
         "max_phase": compound.get("max_phase", "N/A"),
         "smiles": structures.get("canonical_smiles", "N/A"),
@@ -62,7 +77,8 @@ def _prepare_compound_payload(compound: Dict[str, Any]) -> Dict[str, Any]:
 
 def search_chembl(smiles: str) -> Optional[Dict[str, Any]]:
     """Return the first compound matching the provided SMILES string."""
-    results = new_client.molecule.filter(
+    client = _get_chembl_client()
+    results = client.molecule.filter(
         molecule_structures__canonical_smiles__flexmatch=smiles
     )
     return _prepare_compound_payload(results[0]) if results else None
@@ -95,7 +111,11 @@ def _run_command(command: List[str], error_hint: str) -> None:
 
 
 def generate_molecule_image(smiles: str) -> str:
-    """Use obabel + povray to render a 3D PNG into static/generated."""
+    """Use obabel + povray to render a 3D PNG into static/generated.
+    
+    The babel_povray3.inc file must be present in the same directory as app.py.
+    POV-Ray is instructed to look for include files there via the +L option.
+    """
     _ensure_binary("obabel")
     _ensure_binary("povray")
 
@@ -103,16 +123,21 @@ def generate_molecule_image(smiles: str) -> str:
     pov_path = GENERATED_DIR / f"mol_{suffix}.pov"
     png_path = GENERATED_DIR / f"mol_{suffix}.png"
 
+    # Generate POV-Ray scene from SMILES using Open Babel
     obabel_cmd = ["obabel", f"-:{smiles}", "--gen3d", "-O", str(pov_path), "-xc"]
+    
+    # POV-Ray command with +L to specify include path for babel_povray3.inc
+    # The babel_povray3.inc file is in BASE_DIR (same folder as app.py)
     povray_cmd = [
         "povray",
+        f"+L{BASE_DIR}",          # Library path for babel_povray3.inc
         f"+I{pov_path}",
         f"+O{png_path}",
         "+W800",
         "+H600",
-        "+D",
-        "+A",
-        "+FN",
+        "-D",                      # Disable display (run headless)
+        "+A",                      # Anti-aliasing
+        "+FN",                     # PNG output format
     ]
 
     _run_command(obabel_cmd, "Open Babel failed to convert the SMILES")
@@ -121,9 +146,8 @@ def generate_molecule_image(smiles: str) -> str:
     pov_content = pov_path.read_text()
     pov_content = pov_content.replace("union {", "union {\n  rotate <0, 90, 0>", 1)
     
-    # Replace the entire camera block to ensure settings apply
-    import re
-    camera_block = 'camera {\n  location <0, 0, 18>\n  look_at <0, 0, 0>\n  right x*image_width/image_height\n}'
+    # Replace the entire camera block to ensure settings apply (camera angle from A07, zoomed in)
+    camera_block = 'camera {\n  location <0, 8, -15>\n  look_at <0, 0, 0>\n  right x*image_width/image_height\n}'
     pov_content = re.sub(
         r'camera\s*\{[^}]*\}',
         camera_block,
@@ -149,10 +173,10 @@ def generate_molecule_image(smiles: str) -> str:
 
 def create_app() -> Flask:
     """Create and configure the Flask application instance."""
-    app = Flask(__name__, template_folder="templates", static_folder="static")
+    app = Flask(__name__, static_folder="static", template_folder="templates")
 
-    @app.get("/")
-    def index() -> str:
+    @app.route("/")
+    def index():
         return render_template("index.html")
 
     @app.post("/api/compound")
@@ -180,7 +204,7 @@ def create_app() -> Flask:
         return jsonify(
             {
                 "compound": compound_info,
-                "imageUrl": image_url,
+                "image_url": image_url,
                 "smiles": smiles_value,
             }
         )
@@ -190,12 +214,16 @@ def create_app() -> Flask:
 
 def main(argv: List[str]) -> None:
     """CLI entry point."""
-    try:
-        port = int(argv[1])
-    except (IndexError, ValueError):
-        port = 5000
+    port = 5000
+    if len(argv) > 1:
+        try:
+            port = int(argv[1])
+        except ValueError:
+            print(f"Invalid port: {argv[1]}", file=sys.stderr)
+            sys.exit(1)
 
-    create_app().run(debug=True, host="0.0.0.0", port=port)
+    app = create_app()
+    app.run(host="0.0.0.0", port=port, debug=True)
 
 
 if __name__ == "__main__":
