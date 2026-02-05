@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -53,8 +52,7 @@ def _prepare_compound_payload(compound: Dict[str, Any]) -> Dict[str, Any]:
         "hbd": grab("hbd", "N/A"),
         "psa": grab("psa", "N/A"),
         "rtb": grab("rtb", "N/A"),
-        "num_ro5_violations": grab("num_ro5_violations", "N/A"),
-        "ro3_pass": grab("ro3_pass", "N/A"),
+        "ro5_violations": grab("num_ro5_violations", "N/A"),
         "molecule_type": compound.get("molecule_type", "N/A"),
         "max_phase": compound.get("max_phase", "N/A"),
         "smiles": structures.get("canonical_smiles", "N/A"),
@@ -73,66 +71,53 @@ def search_chembl_api(smiles: str) -> Optional[Dict[str, Any]]:
 
 def chembl(request):
     """Handle ChEMBL SMILES search and save to database."""
-    compound = None
+    compound_data = None
     error = None
     smiles_input = ''
-    
+    recent_queries = SmilesQuery.objects.order_by('-timestamp')[:10]
+
     if request.method == 'POST':
         smiles_input = request.POST.get('smiles', '').strip()
         
         if smiles_input:
-            # Save to database
+            # Save query to database
             SmilesQuery.objects.create(smiles=smiles_input)
             
             try:
-                compound = search_chembl_api(smiles_input)
-                if not compound:
-                    error = f"No compound found for SMILES: {smiles_input}"
+                compound_data = search_chembl_api(smiles_input)
+                if not compound_data:
+                    error = "No compound found for this SMILES string."
             except Exception as e:
                 error = f"Error querying ChEMBL: {str(e)}"
         else:
             error = "Please enter a SMILES string"
-    
-    # Get recent queries
-    recent_queries = SmilesQuery.objects.all()[:10]
-    
+        
+        # Refresh recent queries after saving
+        recent_queries = SmilesQuery.objects.order_by('-timestamp')[:10]
+
     context = {
-        'compound': compound,
+        'compound': compound_data,
         'error': error,
         'smiles_input': smiles_input,
         'recent_queries': recent_queries,
     }
-    
+
     return render(request, 'molecules/chembl.html', context)
 
 
 def _ensure_binary(name: str) -> None:
-    """Raise an informative error if the command is unavailable in WSL."""
-    try:
-        result = subprocess.run(
-            ["wsl", "-d", "Ubuntu", "bash", "-c", f"which {name}"],
-            capture_output=True,
-            text=True
-        )
-        if result.returncode != 0:
-            raise MoleculeImageError(
-                f"Required command '{name}' is not available in WSL. Install it first with: sudo apt install {name}"
-            )
-    except FileNotFoundError:
+    """Raise an informative error if the command is unavailable."""
+    if shutil.which(name) is None:
         raise MoleculeImageError(
-            "WSL is not available. Please ensure WSL is installed and Ubuntu distribution is set up."
+            f"Required command '{name}' is not available on PATH. Install it with: sudo apt install {name}"
         )
 
 
 def _run_command(command: list, error_hint: str) -> None:
     """Execute a CLI tool and raise MoleculeImageError on failure."""
-    # Run commands through WSL - use shlex.quote to properly escape all arguments
-    escaped_args = " ".join(shlex.quote(str(arg)) for arg in command)
-    wsl_command = ["wsl", "-d", "Ubuntu", "bash", "-c", escaped_args]
-    
     try:
         subprocess.run(
-            wsl_command,
+            command,
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -147,41 +132,38 @@ def _run_command(command: list, error_hint: str) -> None:
 
 
 def generate_molecule_image(smiles: str) -> str:
-    """Use obabel + povray to render a 3D PNG into media directory."""
+    """Use obabel + povray to render a 3D PNG into media directory.
+    
+    The babel_povray3.inc file must be present in BASE_DIR.
+    POV-Ray is instructed to look for include files there via the +L option.
+    """
     _ensure_binary("obabel")
     _ensure_binary("povray")
 
     media_root = Path(settings.MEDIA_ROOT)
     media_root.mkdir(parents=True, exist_ok=True)
 
+    # BASE_DIR contains babel_povray3.inc
+    base_dir = Path(settings.BASE_DIR)
+
     suffix = uuid4().hex
     pov_path = media_root / f"mol_{suffix}.pov"
     png_path = media_root / f"mol_{suffix}.png"
 
-    # Convert Windows paths to WSL paths
-    def to_wsl_path(path: Path) -> str:
-        """Convert Windows path to WSL path format."""
-        path_str = str(path.resolve())
-        # C:\Users\... -> /mnt/c/Users/...
-        if len(path_str) > 1 and path_str[1] == ':':
-            drive = path_str[0].lower()
-            rest = path_str[2:].replace('\\', '/')
-            return f"/mnt/{drive}{rest}"
-        return path_str
+    # Generate POV-Ray scene from SMILES using Open Babel
+    obabel_cmd = ["obabel", f"-:{smiles}", "--gen3d", "-O", str(pov_path), "-xc"]
 
-    wsl_pov_path = to_wsl_path(pov_path)
-    wsl_png_path = to_wsl_path(png_path)
-
-    obabel_cmd = ["obabel", f"-:{smiles}", "--gen3d", "-O", wsl_pov_path, "-xc"]
+    # POV-Ray command with +L to specify include path for babel_povray3.inc
     povray_cmd = [
         "povray",
-        f"+I{wsl_pov_path}",
-        f"+O{wsl_png_path}",
+        f"+L{base_dir}",          # Library path for babel_povray3.inc
+        f"+I{pov_path}",
+        f"+O{png_path}",
         "+W800",
         "+H600",
-        "+D",
-        "+A",
-        "+FN",
+        "-D",                      # Disable display (run headless)
+        "+A",                      # Anti-aliasing
+        "+FN",                     # PNG output format
     ]
 
     _run_command(obabel_cmd, "Open Babel failed to convert the SMILES")
@@ -189,7 +171,7 @@ def generate_molecule_image(smiles: str) -> str:
     # Adjust POV-Ray scene for better framing
     pov_content = pov_path.read_text()
     pov_content = pov_content.replace("union {", "union {\n  rotate <0, 90, 0>", 1)
-    
+
     # Replace the entire camera block
     camera_block = 'camera {\n  location <0, 0, 18>\n  look_at <0, 0, 0>\n  right x*image_width/image_height\n}'
     pov_content = re.sub(
@@ -220,10 +202,10 @@ def povray(request):
     image_url = None
     error = None
     smiles_input = ''
-    
+
     if request.method == 'POST':
         smiles_input = request.POST.get('smiles', '').strip()
-        
+
         if smiles_input:
             try:
                 image_filename = generate_molecule_image(smiles_input)
@@ -234,11 +216,11 @@ def povray(request):
                 error = f"Error generating image: {str(e)}"
         else:
             error = "Please enter a SMILES string"
-    
+
     context = {
         'image_url': image_url,
         'error': error,
         'smiles_input': smiles_input,
     }
-    
+
     return render(request, 'molecules/povray.html', context)
